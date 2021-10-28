@@ -1,12 +1,11 @@
 import mppi
-import torch
 import matplotlib.pyplot as plt
-
+import torch
 import utils
 
 
 class Params():
-    num_samples = 5
+    num_samples = 50
     time_horizon = 1  # in seconds
     num_timesteps = 10
     ctrl_dim = 1
@@ -17,10 +16,8 @@ class Params():
     per_ctrl_based_ctrl_noise = 0.999
     real_traj_cost = True
     plot_traj = True
-    print_sim = True
-    print_mppi = True
-    save_sampling = False
-    sampling_filename = "inv_pen"
+    print_sim = False
+    print_mppi = False
 
 
 def main():
@@ -45,11 +42,12 @@ def main():
                                Params.real_traj_cost,
                                Params.plot_traj,
                                Params.print_sim,
-                               Params.print_mppi,
-                               Params.save_sampling,
-                               Params.sampling_filename)
-    plt.plot(rep_traj_cost_hist)
-    plt.show()
+                               Params.print_mppi)
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.plot(rep_traj_cost_hist)
+    ax.set_title('Cost history')
+    plt.show(block=False)
+    input("Press Enter to exit.")
 
 
 if __name__ == '__main__':
