@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 def inv_pen_apply_ctrl(x, u, dt):
     m = 1
@@ -123,3 +123,21 @@ def inv_pen_term_cost(x):
                                [0.]])
 
     return 0.5 * torch.sum((x - goal_state) * (Qf @ (x - goal_state)), dim=0, keepdim=True)
+
+def show_me(theta, ax=None):
+    """
+    Returns:
+    A list of Artists.
+    """
+    if ax is None:
+        _, ax = plt.subplots()
+
+    pendulum = plt.Rectangle((0., 0.),
+                             width=1.0,
+                             height=0.02,
+                             angle = 270 + theta * 180 / np.pi,
+                             fc='red',
+                             ec=None,
+                             lw=1,
+                             alpha=0.5)
+    return [ax.add_patch(pendulum)]

@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-
+from sim import Simulator
 
 def plot_state(traj, ax=None):
     ax.clear()
@@ -10,6 +10,23 @@ def plot_state(traj, ax=None):
     ax.set_title('State')
     plt.pause(0.01)
 
+    func_control_update_converged = None
+    func_comp_weights = None
+    func_term_cost = None
+    func_run_cost = None
+    func_g = None
+    func_F = None
+    func_state_transform = None
+    func_filter_du = None
+    num_samples = None
+    learning_rate = None
+    curr_x = None
+    sample_u_traj = None
+    ctrl_noise_covar = None
+    time_horizon = None
+    per_ctrl_based_ctrl_noise = None
+    real_traj_cost = None
+    print_mppi = None
 
 def mppi(func_control_update_converged,
          func_comp_weights, func_term_cost, func_run_cost, func_g, func_F,
@@ -120,29 +137,29 @@ def mppi(func_control_update_converged,
     return sample_u_traj, rep_traj_cost.item(), real_x_traj
 
 
-def mppisim(func_is_task_complete, func_control_update_converged,
-            func_comp_weights, func_term_cost, func_run_cost,
+def mppisim(func_is_task_complete,
             func_gen_next_ctrl,
-            func_state_est, func_apply_ctrl, func_g, func_F,
-            func_state_transform,
-            func_control_transform, func_filter_du, num_samples, learning_rate,
-            init_state, init_ctrl_seq, ctrl_noise_covar, time_horizon,
-            per_ctrl_based_ctrl_noise, real_traj_cost, plot_traj, print_sim,
-            print_mppi):
+            func_state_est,
+            func_apply_ctrl,
+            func_control_transform,
+            plot_traj,
+            print_sim,
+            params,
+            mppi_args):
 
     # time stuff
-    control_dim, num_timesteps = init_ctrl_seq.size()
-    dt = time_horizon / num_timesteps
+    control_dim, num_timesteps = params["sample_u_traj"].size()
+    dt = params["time_horizon"] / num_timesteps
     time = 0
     time_hist = [time]
 
     # state stuff
-    state_dim = init_state.size()[0]
-    x_hist = [init_state]
-    curr_x = init_state.clone().detach()
+    state_dim = params["init_state"].size()[0]
+    x_hist = [params["init_state"]]
+    curr_x = params["init_state"].clone().detach()
 
     # sample state stuff
-    sample_init_state = func_state_transform(init_state)
+    sample_init_state = mppi_args["func_state_transform"](curr_x)
     sample_x_hist = [sample_init_state]
 
     # control history
@@ -150,7 +167,7 @@ def mppisim(func_is_task_complete, func_control_update_converged,
     u_hist = []
 
     # control sequence
-    sample_u_traj = init_ctrl_seq
+    sample_u_traj = params["sample_u_traj"]
 
     # trajectory cost history
     rep_traj_cost_hist = []
@@ -159,14 +176,20 @@ def mppisim(func_is_task_complete, func_control_update_converged,
         fig, state_plot = plt.subplots(figsize=(10, 8))
         state_plot.set_title("state")
 
-    total_timestep_num = 0
+        total_timestep_num = 0
+
+
     while not func_is_task_complete(curr_x, time):
         # Use mppi
-        sample_u_traj, rep_traj_cost, real_x_traj = mppi(func_control_update_converged,
-                                                         func_comp_weights, func_term_cost, func_run_cost, func_g, func_F,
-                                                         func_state_transform, func_filter_du, num_samples, learning_rate,
-                                                         curr_x, sample_u_traj, ctrl_noise_covar, time_horizon,
-                                                         per_ctrl_based_ctrl_noise, real_traj_cost, print_mppi)
+        sample_u_traj, rep_traj_cost, real_x_traj = mppi(init_state = curr_x,
+                                                         init_ctrl_seq = sample_u_traj,
+                                                         num_samples = params["num_samples"],
+                                                         learning_rate = params["learning_rate"],
+                                                         ctrl_noise_covar = params["ctrl_noise_covar"],
+                                                         time_horizon = params["time_horizon"],
+                                                         per_ctrl_based_ctrl_noise = params["per_ctrl_based_ctrl_noise"],
+                                                         real_traj_cost = params["real_traj_cost"],
+                                                         **mppi_args)
 
         # Transform from sample_u to u
         u = func_control_transform(sample_x_hist[-1], sample_u_traj[:, None, 0], dt)
@@ -178,8 +201,7 @@ def mppisim(func_is_task_complete, func_control_update_converged,
         curr_x = func_state_est(true_x)
 
         # Transform from state used in dynamics vs state used in control sampling
-        sample_x = func_state_transform(curr_x)
-
+        sample_x = mppi_args["func_state_transform"](curr_x)
         # Log state data
         x_hist.append(curr_x)
 
@@ -212,3 +234,48 @@ def mppisim(func_is_task_complete, func_control_update_converged,
 
     return (x_hist, u_hist, sample_x_hist, sample_u_hist, rep_traj_cost_hist,
             time_hist)
+
+
+def interactive_mppisim(func_is_task_complete,
+                        func_gen_next_ctrl,
+                        func_state_est,
+                        func_apply_ctrl,
+                        func_control_transform,
+                        plot_traj,
+                        print_sim,
+                        params,
+                        mppi_args):
+
+    # time stuff
+    control_dim, num_timesteps = params["sample_u_traj"].size()
+    dt = params["time_horizon"] / num_timesteps
+    time = 0
+    time_hist = [time]
+
+    # state stuff
+    state_dim = params["init_state"].size()[0]
+    x_hist = [params["init_state"]]
+    curr_x = params["init_state"].clone().detach()
+
+    # sample state stuff
+    sample_init_state = mppi_args["func_state_transform"](curr_x)
+    sample_x_hist = [sample_init_state]
+
+    # control history
+    sample_u_hist = []
+    u_hist = []
+
+    # control sequence
+    sample_u_traj = params["sample_u_traj"]
+
+    # trajectory cost history
+    rep_traj_cost_hist = []
+
+    sim = Simulator(
+        func_control_transform,
+        func_gen_next_ctrl,
+        func_state_est,
+        func_apply_ctrl,
+        params,
+        mppi_args)
+    sim.run()
