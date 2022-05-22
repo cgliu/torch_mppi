@@ -129,15 +129,12 @@ def show_me(theta, ax=None):
     Returns:
     A list of Artists.
     """
-    if ax is None:
-        _, ax = plt.subplots()
-
     pendulum = plt.Rectangle((0., 0.),
                              width=1.0,
                              height=0.02,
                              angle = 270 + theta * 180 / np.pi,
-                             fc='red',
-                             ec=None,
+                             fc='y',
+                             ec='r',
                              lw=1,
-                             alpha=0.5)
-    return [ax.add_patch(pendulum)]
+                             alpha=1.0)
+    return [pendulum]
